@@ -1,11 +1,11 @@
 # wake-on-http
 
-wake-on-http provides a small service that wakes offline servers (via Wake-on-LAN) when a service they're running is accessed through a reverse proxy (like Nginx Proxy Manager). When a user tries to access a service on an offline server, this application intercepts the request, sends a WOL packet to the target machine, and displays a "Waking up..." status page. Once the service is online, the user is redirected to the actual application.
+**Wake-on-http** provides a small service that wakes offline servers (via Wake-on-LAN) when a request is made to one of their services through a reverse proxy (like Nginx Proxy Manager). When a user tries to access a service on an offline server, this application receives the forwarded request, sends a WOL packet to the target machine, and displays a "Waking up..." status page. Once the service is online, the user is redirected to the actual application.
 
 ## Features
 
 - **Automatic Wake-on-LAN**: Sends a Magic Packet to the configured MAC address when a service is accessed but offline.
-- **Status Page**: Displays a customizable loading page while the server is booting.
+- **Status Page**: Displays a loading page while the server is booting.
 - **Configuration**: Simple YAML-based configuration for each service.
 - **Preview Mode**: Preview startup templates without triggering WOL.
 
