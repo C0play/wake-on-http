@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Uruchamianie serwera</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            color: #1c1e21;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                background-color: #18191a;
+                color: #e4e6eb;
+            }
+
+            .container {
+                background: #242526 !important;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+            }
+
+            p {
+                color: #b0b3b8 !important;
+            }
+        }
+
+        .container {
+            background: #ffffff;
+            border-radius: 8px;
+            padding: 40px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            transition: all 0.3s ease;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+        }
+
+        p {
+            color: #65676b;
+            font-size: 16px;
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+
+        .spinner {
+            margin: 0 auto;
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(0, 0, 0, 0.1);
+            border-top: 3px solid #1877f2;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            .spinner {
+                border-color: rgba(255, 255, 255, 0.1);
+                border-top-color: #2d88ff;
+            }
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        .service_style {
+            color: #2d88ff;
+            font-weight: 650;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" style="margin-bottom: 20px; color: #1877f2;">
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+        </svg>
+
+        <h1>Serwer <span class="service_style">{{service_name}}</span> jest uruchamiany</h1>
+        <p>Strona odświeży się automatycznie.</p>
+        <div class="spinner"></div>
+    </div>
+    <script>
+        (function () {
+            const RELOAD_MS = 20000; // 20 seconds
+            let reloadTimer = null;
+
+            function clearReload() {
+                if (reloadTimer) {
+                    clearTimeout(reloadTimer);
+                    reloadTimer = null;
+                }
+            }
+
+            function scheduleReload() {
+                clearReload();
+                reloadTimer = setTimeout(() => {
+                    try { location.reload(); } catch (e) { /* ignore */ }
+                }, RELOAD_MS);
+            }
+
+            function onVisibilityChange() {
+                if (document.visibilityState === 'visible') {
+                    scheduleReload();
+                } else {
+                    clearReload();
+                }
+            }
+
+            document.addEventListener('visibilitychange', onVisibilityChange, false);
+            if (document.visibilityState === 'visible') scheduleReload();
+        })();
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,14 @@
+services:
+  autostart:
+    image: autostart:dev
+    container_name: autostart
+    network_mode: host
+    volumes:
+    # - path/to/configs:/app/config:ro
+    # - path/to/templates:/app/templates:ro
+    # - path/to/logs:/app/templates:rw
+    environment:
+      - SERVER_PORT=5555
+      - LOG_LEVEL=DEBUG
+      - TZ=GMT
+    restart: unless-stopped

@@ -1,0 +1,41 @@
+# Python virtual environments
+.venv/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# PyInstaller
+*.spec
+
+# Test and coverage
+.coverage
+.tox/
+.nox/
+.cache/
+.pytest_cache/
+htmlcov/
+
+# Secrets
+.env
+
+# Configs and logs
+logs/*
+configs/*
+!configs/mock.yml
+services.yml
+templates/*
+!templates/default.html
+
+
+# VS Code
+.vscode
+*.code-workspace

@@ -1,0 +1,5 @@
+HOST_MAC : "00:00:00:00:00:00"
+HOST_IP : "127.0.0.1"
+APP_URL: "http://mock.local:8096"
+IGNORED_PATHS:
+  - "/ignore/me"
