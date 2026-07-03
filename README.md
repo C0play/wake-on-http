@@ -4,7 +4,7 @@
 
 # Use Case
 
-**Wake-on-http** isdesigned for homelabs, where energy consumption is important, and a low-power computer is available, in combination with a simple shutdown script (available on my GitHub) to power off the server when it’s not needed.
+**Wake-on-http** is designed for homelabs, where energy consumption is important, and a low-power computer is available. In combination with a simple shutdown script (available on my GitHub) to power off the server when it’s not needed, this project can save you a lot in electricity bills.
 In my homelab, I have an old PC serving as my workhorse server and a Raspberry Pi for lighter tasks. Over the last 6 months, my server used **24.97 kWh** in total. If I had run the server 24/7, it would have used at least **175 kWh** (idle power usage is ~40W). But with this project and a shutdown script running, that drops to **42 kWh**, combined with ~17 kWh for the Raspberry Pi, over the last 6 months, representing a significant power saving.
 
 ## Features
