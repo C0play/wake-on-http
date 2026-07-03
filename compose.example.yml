@@ -1,14 +1,17 @@
 services:
-  autostart:
-    image: autostart:dev
-    container_name: autostart
+  wake-on-http-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: wake-on-http-dev:latest
+    container_name: wake-on-http-dev
     network_mode: host
     volumes:
-    # - path/to/configs:/app/config:ro
-    # - path/to/templates:/app/templates:ro
-    # - path/to/logs:/app/templates:rw
+      - /home/blazej/npm/plugins/wake-on-http/services:/wake-on-http/services:ro
+      - /home/blazej/npm/plugins/wake-on-http/notifiers:/wake-on-http/notifiers:ro
+      - /home/blazej/npm/plugins/wake-on-http/templates:/wake-on-http/templates:ro
     environment:
       - SERVER_PORT=5555
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=Info
       - TZ=GMT
     restart: unless-stopped

@@ -31,7 +31,7 @@ from .logger import logger
 
 class Api:
 
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
     METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 
@@ -87,6 +87,39 @@ class Api:
             return jsonify({"status": "ok"})
 
 
+        @self.app.route('/preview/<name>')
+        def preview(name):
+            """Render a template preview for a service template.
+
+            If ``<name>.html`` exists in the templates directory it will be rendered,
+            otherwise ``default.html`` will be rendered with ``service_name=<name>``.
+
+            Args:
+                name: Template name without extension.
+
+            Returns:
+                A Flask response containing the rendered template or a 500 error page on
+                exception.
+            """
+
+            try:
+                TEMPLATE_FILE = os.path.join(self.TEMPLATES_DIR, f"{name}.html")
+
+                if os.path.exists(TEMPLATE_FILE):
+                    template = render_template(f"{name}.html")
+                else:
+                    template = render_template(
+                        f"default.html",
+                        service_name=name,
+                    )
+
+                return make_response(template)
+
+            except Exception as e:
+                logger.exception(f"Internal: {e}")
+                return make_response(f"Internal error: {str(e)}", 500)
+
+
         @self.app.route('/', defaults={'path': ''}, methods=self.METHODS)
         @self.app.route('/<path:path>', methods=self.METHODS)
         def main(path):
@@ -128,39 +161,6 @@ class Api:
             except Exception as e:
                 logger.exception(f"Internal error: {e}")
                 return service.respond(f"Internal error: {str(e)}", 500)
-
-
-        @self.app.route('/preview/<name>')
-        def preview(name):
-            """Render a template preview for a service template.
-
-            If ``<name>.html`` exists in the templates directory it will be rendered,
-            otherwise ``default.html`` will be rendered with ``service_name=<name>``.
-
-            Args:
-                name: Template name without extension.
-
-            Returns:
-                A Flask response containing the rendered template or a 500 error page on
-                exception.
-            """
-
-            try:
-                TEMPLATE_FILE = os.path.join(self.TEMPLATES_DIR, f"{name}.html")
-
-                if os.path.exists(TEMPLATE_FILE):
-                    template = render_template(f"{name}.html")
-                else:
-                    template = render_template(
-                        f"default.html",
-                        service_name=name,
-                    )
-
-                return make_response(template)
-
-            except Exception as e:
-                logger.exception(f"Internal: {e}")
-                return make_response(f"Internal error: {str(e)}", 500)
 
 
         @self.app.after_request

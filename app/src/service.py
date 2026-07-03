@@ -94,7 +94,7 @@ class Service:
         try:
             accept_header = request.headers.get("Accept", "")
             if "text/html" in accept_header:
-                TEMPLATES_DIR = os.path.join(BASE_DIR, "app", "templates")
+                TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
                 TEMPLATE_FILE = os.path.join(TEMPLATES_DIR, f"{self.name}.html")
 
                 if os.path.exists(TEMPLATE_FILE):
