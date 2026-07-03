@@ -28,12 +28,10 @@ htmlcov/
 .env
 
 # Configs and logs
-logs/*
-configs/*
-!configs/mock.yml
-services.yml
-templates/*
-!templates/default.html
+**/services/*
+**/notifiers/*
+**/templates/*
+!**/templates/default.html
 
 
 # VS Code

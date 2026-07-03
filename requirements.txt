@@ -1,2 +1,5 @@
 flask
 PyYAML
+requests
+pytest
+pytest-cov

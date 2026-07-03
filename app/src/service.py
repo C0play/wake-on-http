@@ -2,7 +2,7 @@
 
 This module defines the :class:`Service` wrapper around a service
 configuration and a :class:`ServiceFactory` that discovers, loads and
-refreshes service configurations from the ``configs/`` directory.
+refreshes service configurations from the ``services/`` directory.
 """
 
 import os
@@ -14,12 +14,12 @@ from flask import (
     Response, Request
 )
 
-from config import ServiceConfig
-from logger import logger
-import utils
+from .config import ServiceConfig
+from .logger import logger
+from .utils import check_status, wake
 
 
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class Service:
@@ -43,7 +43,7 @@ class Service:
         Delegates to :func:`utils.check_status` which performs a TCP
         connection attempt to ``cfg.HOST_IP:cfg.HOST_PORT``.
         """
-        return utils.check_status(self.cfg)
+        return check_status(self.cfg)
 
 
     def wake(self, request: Request) -> None:
@@ -52,7 +52,7 @@ class Service:
         Args:
             request: Flask request object that triggered the wake.
         """
-        utils.wake(self.cfg, request)
+        wake(self.cfg, request)
 
 
     def should_ignore(self, path: str) -> bool:
@@ -69,7 +69,7 @@ class Service:
             True if the path starts with any configured ignored prefix.
         """
         path = path[1:] if path.startswith('/') else path
-        logger.debug(f"{path}, {self.cfg.IGNORED_PATHS}")
+        logger.debug(f"path: '{path}', ignored paths: {self.cfg.IGNORED_PATHS}")
 
         return any(path.startswith(p) for p in self.cfg.IGNORED_PATHS)
 
@@ -92,7 +92,7 @@ class Service:
         try:
             accept_header = request.headers.get("Accept", "")
             if "text/html" in accept_header:
-                TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+                TEMPLATES_DIR = os.path.join(BASE_DIR, "app", "templates")
                 TEMPLATE_FILE = os.path.join(TEMPLATES_DIR, f"{self.name}.html")
 
                 if os.path.exists(TEMPLATE_FILE):
@@ -120,6 +120,7 @@ class Service:
 
 
 class ServiceRegistry:
+
     def __init__(self) -> None:
         """Initialize an empty registry."""
         self._services: dict[str, Service] = {}
@@ -194,10 +195,9 @@ class ServiceRegistry:
         return services[0].name
 
 
-    def get_mtimes(self) -> dict[str, float]:
+    def get_configs(self) -> list[ServiceConfig]:
         """Return a mapping of config path -> last_mtime for all services."""
-        return {service.cfg.file_metadata.path: service.cfg.file_metadata.last_mtime 
-                for service in self._services.values()}
+        return [service.cfg for service in self._services.values()]
 
 
 
@@ -269,7 +269,7 @@ class ServiceFactory:
 
 
         # Remove services without config files
-        if missing_configs:=  cls._get_missing_cfg_files():
+        if missing_configs := cls._get_missing_cfg_files():
             logger.info(f"Removing services with missing config files:")
             for service_name, path in missing_configs:
                 logger.info(f"Config file removed: {path}")
@@ -278,20 +278,19 @@ class ServiceFactory:
 
         # Reload all services if necessary
         modified_configs = list(filter(
-            lambda tp: tp[1] != ServiceFactory._get_curr_mtime(tp[0]),
-            cls._service_registry.get_mtimes().items()
+            lambda cfg: cfg.has_changed(),
+            cls._service_registry.get_configs()
         ))
         logger.debug(f"modified_configs: {modified_configs}")
         if modified_configs:
             logger.info(f"Reloading services with modified config files:")
             
-            for path, last_mtime in modified_configs:
-                current_mtime = ServiceFactory._get_curr_mtime(path)
-                service_name = cls._service_registry.get_name(path)
-                logger.info(f"Config file changed: {path} (mtime {last_mtime} -> {current_mtime})")
+            for cfg in modified_configs:
+                service_name = cls._service_registry.get_name(cfg.file_metadata.path)
+                logger.info(f"Config file changed: {cfg.file_metadata.path}")
                 
                 cls._remove_service(service_name)
-                cls._add_service(path)
+                cls._add_service(cfg.file_metadata.path)
 
 
 
@@ -315,8 +314,7 @@ class ServiceFactory:
             hostname = urlparse(config.APP_URL).hostname
             
             if not hostname:
-                logger.error(f"Could not determine hostname from APP_URL: \
-                                   {config.APP_URL}")
+                logger.error(f"Could not determine hostname from APP_URL: {config.APP_URL}")
                 return
 
             new_service = Service(config)
@@ -366,31 +364,11 @@ class ServiceFactory:
 
     @staticmethod
     def _get_config_paths() -> list[str]:
-        """Return all YAML config file paths from the ``configs/`` directory.
+        """Return all YAML config file paths from the ``services/`` directory.
 
         Returns:
             A list of absolute file paths ending with ``.yml``.
         """
-        paths = [os.path.join(BASE_DIR, "configs", filename) for
-             filename in os.listdir(os.path.join(BASE_DIR, "configs"))]
+        paths = [os.path.join(BASE_DIR, "services", filename) for
+             filename in os.listdir(os.path.join(BASE_DIR, "services"))]
         return list(filter(lambda s: s.endswith(".yml"), paths))
-
-    
-    @staticmethod
-    def _get_curr_mtime(path: str) -> float:
-        """Return the modification time for *path* or ``0`` if inaccessible.
-
-        Args:
-            path: Filesystem path to stat.
-
-        Returns:
-            mtime as a float (seconds since epoch), or ``0`` if the file is
-            missing or cannot be accessed.
-        """
-        try:
-            new_mtime = os.path.getmtime(path)
-            return new_mtime
-
-        except OSError:  # File missing or inaccessible
-            logger.warning(f"Failed to read {path}")
-            return 0

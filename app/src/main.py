@@ -22,8 +22,10 @@ from flask import (
         make_response, g
 )
 
-from service import ServiceFactory
-from logger import logger
+from .service import ServiceFactory
+from .notify import NotificationServiceRegistry
+from .logger import logger
+
 
 
 # ===== CONFIG =====
@@ -43,6 +45,7 @@ signal.signal(signal.SIGINT, handle_exit)
 
 
 ServiceFactory.load_all()
+NotificationServiceRegistry.load_all()
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
@@ -80,6 +83,7 @@ def before_request():
     logger.info(f"[+] ({hostname}) : {request.method} {url_path} from {ip}")
 
 
+
 @app.route('/health')
 def health():
     """Simple healthcheck endpoint.
@@ -89,6 +93,7 @@ def health():
     """
 
     return jsonify({"status": "ok"})
+
 
 
 @app.route('/', defaults={'path': ''}, methods=METHODS)
@@ -118,7 +123,7 @@ def main(path):
     try:
 
         if service.should_ignore(path):
-            logger.info(f"Background request {path} ignored for waking")
+            logger.info(f"Request {path} ignored for waking")
             return service.respond("Server offline - background sync ignored", 503)
 
         if service.check_status():
@@ -131,6 +136,7 @@ def main(path):
     except Exception as e:
         logger.exception(f"Internal error: {e}")
         return service.respond(f"Internal error: {str(e)}", 500)
+
 
 
 @app.route('/preview/<name>')
@@ -164,6 +170,7 @@ def preview(name):
     except Exception as e:
         logger.exception(f"Internal: {e}")
         return make_response(f"Internal error: {str(e)}", 500)
+
 
 
 @app.after_request

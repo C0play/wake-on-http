@@ -10,19 +10,19 @@ from flask import Request
 from urllib.parse import urlparse
 import subprocess
 import socket
-import datetime
-import os
 import time
 
-from config import ServiceConfig
-from logger import logger
+from .notify import NotificationServiceRegistry
+from .config import ServiceConfig
+from .logger import logger
 
 
 # Store last wake timestamps to prevent multiple calls
 _last_wakes: dict[str, float] = {}
 
 
-def check_status(cfg: ServiceConfig):
+
+def check_status(cfg: ServiceConfig) -> bool:
     """Check whether the configured host is reachable via TCP.
 
     Attempts a short-lived TCP connection to ``cfg.HOST_IP:cfg.HOST_PORT``.
@@ -31,20 +31,21 @@ def check_status(cfg: ServiceConfig):
         cfg: ServiceConfig describing the target host and port.
 
     Returns:
-        ``True`` if a TCP connection could be established, ``False``
-        otherwise.
+        ``True`` if a TCP connection could be established, ``False`` otherwise.
     """
+
     hostname = cfg.HOST_IP
     port = cfg.HOST_PORT
 
     try:
         with socket.create_connection((hostname, port), timeout=0.5):
-            logger.warning(f"Checking {hostname}:{port} status: host online")
+            logger.info(f"Checking {hostname}:{port} status: host online")
             return True
     except OSError as e:
         logger.info(f"Checking {hostname}:{port} status: {e}")
         return False
     
+
 
 def wake(cfg: ServiceConfig, request: Request):
     """Send a Wake-on-LAN packet for the configured host.
@@ -65,7 +66,7 @@ def wake(cfg: ServiceConfig, request: Request):
     current_time = time.time()
     last_wake = _last_wakes.get(cfg.HOST_MAC, 0)
 
-    if current_time - last_wake < 40:
+    if current_time - last_wake < 50:
         logger.info(f"Wake for {cfg.HOST_IP} skipped (last wake {int(current_time - last_wake)}s ago)")
         return
 
@@ -76,33 +77,10 @@ def wake(cfg: ServiceConfig, request: Request):
     cmd = ["wakeonlan", "-i", cfg.BROADCAST_IP, cfg.HOST_MAC]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=0.1)
 
-    log_wake_request(request)
 
+    notifiers = NotificationServiceRegistry.get(cfg.NOTIFY) or []
 
-def log_wake_request(request: Request):
-    """Record a wake request to a timestamped log file.
-
-    The function extracts the client IP (preferring ``X-Forwarded-For``),
-    the requested path and hostname, then appends a single-line entry to
-    ``logs/wakes.log`` inside the plugin base directory. The logs directory
-    is created if missing. Any exception while writing the log is caught
-    and reported to the application logger.
-
-    Args:
-        request: Flask request object that initiated the wake.
-    """
-    try:
-        ip: str | None = request.headers.get('X-Forwarded-For', request.remote_addr)
-        url_path = urlparse(request.url).path
-        hostname = urlparse(request.url).hostname or request.host.split(':')[0]
-
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        logs_dir = os.path.join(base_dir, "logs")
-        os.makedirs(logs_dir, exist_ok=True)
-        log_file = os.path.join(logs_dir, "wakes.log")
-
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        with open(log_file, "a") as f:
-            f.write(f"[{timestamp}] {ip} requested '{url_path}' ({hostname})\n")
-    except Exception as e:
-        logger.error(f"Failed to log wake event: {e}")
+    hostname = urlparse(request.url).hostname or request.host.split(':')[0]
+    ip: str | None = request.headers.get('X-Forwarded-For', request.remote_addr)
+    for notifier in notifiers:
+            notifier.send_wake(hostname, ip or "unknown")
