@@ -5,14 +5,14 @@ import flask.testing
 
 from ..src.service import ServiceFactory, ServiceRegistry
 from ..src.notify import NotificationServiceRegistry
-from ..src.main import app as api
+from ..src.api import Api
 
 
 
 @pytest.fixture
 def client():
-    app = api
-    api.config["TESTING"] = True
+    app = Api().app
+    app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
 
@@ -59,8 +59,8 @@ class TestValidRequest:
 
     def test_health(self, client: flask.testing.FlaskClient):
 
-        with unittest.mock.patch("app.src.main.ServiceFactory.refresh") as refresh, \
-             unittest.mock.patch("app.src.main.jsonify") as jsonify:
+        with unittest.mock.patch("app.src.api.ServiceFactory.refresh") as refresh, \
+             unittest.mock.patch("app.src.api.jsonify") as jsonify:
 
             resp = client.get("/health", base_url="http://127.0.0.1:5000")
             

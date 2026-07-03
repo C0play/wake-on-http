@@ -7,11 +7,12 @@ refreshes service configurations from the ``services/`` directory.
 
 import os
 import time
+
 from urllib.parse import urlparse
 from flask import (
     render_template, jsonify,
     make_response, request,
-    Response, Request
+    Response
 )
 
 from .config import ServiceConfig
@@ -46,13 +47,14 @@ class Service:
         return check_status(self.cfg)
 
 
-    def wake(self, request: Request) -> None:
+    def wake(self, hostname: str, ip: str) -> None:
         """Send a Wake-on-LAN packet for this service.
 
         Args:
-            request: Flask request object that triggered the wake.
+            hostname: Hostname of the service requesing the wake.
+            ip: IP address of the device requesting the wake.
         """
-        wake(self.cfg, request)
+        wake(self.cfg, hostname, ip)
 
 
     def should_ignore(self, path: str) -> bool:

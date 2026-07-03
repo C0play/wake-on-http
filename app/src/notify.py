@@ -1,6 +1,7 @@
 import requests
-from abc import ABC, abstractmethod
 import os
+
+from abc import ABC, abstractmethod
 
 from .logger import logger
 from .config import NotificationServiceConfig, NtfyConfig
@@ -104,7 +105,7 @@ class NotificationServiceRegistry:
 
 
     @classmethod
-    def get(cls, names: str | list[str]) -> list[NotificationService] | None:
+    def get(cls, names: str | list[str]) -> list[NotificationService]:
         if isinstance(names, str):
             names = [names]
         return [cls._notification_services[name] for name in names if name in cls._notification_services]

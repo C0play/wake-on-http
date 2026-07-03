@@ -21,14 +21,6 @@ class TestUtils:
     file = os.path.join(cwd, "mock_notifiers", "valid.yml")
     notifier = NTFY(NtfyConfig.from_yaml(file))
 
-    # Fake flask.Request
-    mock_request = unittest.mock.Mock(spec=Request)
-    mock_request.url = "http://mock.local:8096"
-    mock_request.headers = {"X-Forwarded-For": "1.1.1.1"}
-    mock_request.remote_addr = "192.211.33.1"
-    mock_request.host = "aaaa"
-
-
     @unittest.mock.patch("app.src.utils.socket.create_connection")
     def test_check_status_online(self, mock_create_conn):
         class DummyConn:
@@ -53,7 +45,7 @@ class TestUtils:
 
         now = time.time()
         with unittest.mock.patch("app.src.utils._last_wakes", {"00:00:00:00:00:00": now}):
-            utils.wake(self.cfg, self.mock_request)
+            utils.wake(self.cfg, "mock", "1.1.1.1")
 
         assert "skipped" in caplog.text
 
@@ -65,7 +57,7 @@ class TestUtils:
         self.notifier.name = "test-wakes"
         get.return_value = [self.notifier]
 
-        utils.wake(self.cfg, self.mock_request)
+        utils.wake(self.cfg, "mock", "1.1.1.1")
 
         assert "skipped" not in caplog.text
         assert "Failed to send notification" in caplog.text

@@ -6,8 +6,6 @@ designed to be called from Flask request handlers and rely on
 configuration provided by :class:`config.ServiceConfig`.
 """
 
-from flask import Request
-from urllib.parse import urlparse
 import subprocess
 import socket
 import time
@@ -47,7 +45,7 @@ def check_status(cfg: ServiceConfig) -> bool:
     
 
 
-def wake(cfg: ServiceConfig, request: Request):
+def wake(cfg: ServiceConfig, hostname: str, ip: str):
     """Send a Wake-on-LAN packet for the configured host.
 
     This function enforces a short rate limit (40 seconds) per-MAC address
@@ -56,7 +54,8 @@ def wake(cfg: ServiceConfig, request: Request):
 
     Args:
         cfg: ServiceConfig with ``HOST_MAC`` and ``BROADCAST_IP``.
-        request: Flask request that triggered the wake (used for logging).
+        hostname: Hostname of the service requesing the wake.
+        ip: IP address of the device requesting the wake.
 
     Raises:
         subprocess.CalledProcessError: if the ``wakeonlan`` command exits
@@ -77,10 +76,5 @@ def wake(cfg: ServiceConfig, request: Request):
     cmd = ["wakeonlan", "-i", cfg.BROADCAST_IP, cfg.HOST_MAC]
     subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=0.1)
 
-
-    notifiers = NotificationServiceRegistry.get(cfg.NOTIFY) or []
-
-    hostname = urlparse(request.url).hostname or request.host.split(':')[0]
-    ip: str | None = request.headers.get('X-Forwarded-For', request.remote_addr)
-    for notifier in notifiers:
+    for notifier in NotificationServiceRegistry.get(cfg.NOTIFY):
             notifier.send_wake(hostname, ip or "unknown")

@@ -4,11 +4,12 @@ This module provides a small dataclass-based representation of a service
 configuration file and a helper to load that configuration from YAML.
 """
 
+import yaml
+import os
+
 from typing import Any
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
-import yaml
-import os
 
 from .logger import logger
 
