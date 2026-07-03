@@ -1,6 +1,6 @@
 # wake-on-http
 
-**Wake-on-http** provides a small service that wakes offline servers (via Wake-on-LAN) when a request is made to one of their services through a reverse proxy (like Nginx Proxy Manager). When a user tries to access a service on an offline server, this application receives the forwarded request, sends a WOL packet to the target machine, and displays a "Waking up..." status page. Once the service is online, the user is redirected to the actual application.
+**Wake-on-http** provides a small service that wakes offline servers (via Wake-on-LAN) when a request is made to one of their services through a reverse proxy (i use Nginx Proxy Manager). When a user tries to access a service on an offline server, this application receives the forwarded request, sends a WOL packet to the target machine, and displays a "Waking up..." status page. Once the service is online, the user is redirected to the actual application.
 
 ## Features
 
@@ -13,26 +13,30 @@
 
 ```
 wake-on-http/
-├── configs/          # YAML configuration files for each service
-├── templates/        # HTML templates for the waking page, default provided
-├── src/              # Source code
-│   ├── main.py       # Flask application entry point
-│   ├── service.py    # Service logic and registry
-│   └── ...
-└── tests/            # Unit tests
+├── services/             # YAML configuration files for each service
+├── notifiers/            # YAML configuration files for each notification service
+└── app/
+    ├── src/              # Source code
+    │   ├── main.py       # Flask application entry point
+    │   ├── service.py    # Service logic and registry
+    │   └── ...
+    ├── templates/        # HTML templates for the waking page, default provided
+    └── tests/            # Unit tests
 ```
 
 ## Configuration
 
-Services are defined in YAML files located in the `configs/` directory. The filename (without extension) is used as the service ID.
+Services are defined in YAML files located in the `services/` directory. The filename (without extension) is used as the service ID.
 
-Example `configs/jellyfin.yml`:
+Example `services/jellyfin.yml`:
 
 ```yaml
 HOST_MAC: "00:11:22:33:44:55"         # MAC address of the host machine
 HOST_IP: "192.168.1.10"               # IP address to check for connectivity
 HOST_PORT: 8096                       # Port to check for connectivity (optional, internal port)
 APP_URL: "http://jellyfin.local:8096" # The full URL of the service
+NOTIFY:                               # Notification services to use
+  - "server-wakes"
 IGNORED_PATHS:                        # Paths that should not trigger a wake event
   - "/api/system/status"
 ```
@@ -53,7 +57,7 @@ To add a new service replace the values in the above file with the parameters of
 
 Place HTML templates in the `templates/` directory.
 - `default.html`: Used if no specific template is found.
-- `<service_name>.html`: Used for a specific service (e.g., `jellyfin.html` for `configs/jellyfin.yml`).
+- `<service_name>.html`: Used for a specific service (e.g., `jellyfin.html` for `services/jellyfin.yml`).
 
 ## Development
 
@@ -76,7 +80,7 @@ pip install -r requirements.txt
 ### Running
 
 ```bash
-python3 src/main.py
+python3 app/src/main.py
 ```
 
 ### Testing
@@ -84,5 +88,5 @@ python3 src/main.py
 Run the unit tests with:
 
 ```bash
-python3 -m unittest tests/test_app.py
+pytest -v --cov=app.src --cov-report=html app/tests
 ```
