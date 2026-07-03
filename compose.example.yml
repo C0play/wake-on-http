@@ -7,11 +7,11 @@ services:
     container_name: wake-on-http-dev
     network_mode: host
     volumes:
-      - /home/blazej/npm/plugins/wake-on-http/services:/wake-on-http/services:ro
-      - /home/blazej/npm/plugins/wake-on-http/notifiers:/wake-on-http/notifiers:ro
-      - /home/blazej/npm/plugins/wake-on-http/templates:/wake-on-http/templates:ro
+      - /path/to/services:/wake-on-http/services:ro
+      - /path/to/notifiers:/wake-on-http/notifiers:ro
+      - /path/to/templates:/wake-on-http/templates:ro
     environment:
       - SERVER_PORT=5555
-      - LOG_LEVEL=Info
+      - LOG_LEVEL=INFO
       - TZ=GMT
     restart: unless-stopped
