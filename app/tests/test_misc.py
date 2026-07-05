@@ -1,9 +1,4 @@
-import unittest.mock
-import unittest
 import logging
-import pytest
-import time
-import os
 
 
 from ..src.logger import _resolve_level

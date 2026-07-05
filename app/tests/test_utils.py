@@ -1,9 +1,7 @@
 import os
 import time
-import pytest
 import unittest.mock
 
-from flask import Request
 
 from ..src.config import ServiceConfig, NtfyConfig
 from ..src.notify import NTFY
