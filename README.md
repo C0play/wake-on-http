@@ -61,7 +61,7 @@ location @wol {
 Notification services are defined in YAML files located in the `notifiers/` directory. The filename (without extension) is used as the notifier ID.
 Currently the project supports sending notifications with **ntfy**.
 
-To add a new notification service replace the values in the below file:
+To add a new notification service replace the values in the example below:
 ```yaml
 TYPE: "ntfy"
 URL: "https://ntfy.example.com/server-wakes"
@@ -69,10 +69,23 @@ URL: "https://ntfy.example.com/server-wakes"
 
 ## Templates
 
-Place HTML templates in the `templates/` directory.
+Place HTML templates in the `templates/` directory:
 - `default.html`: Used if no specific template is found.
 - `<service_name>.html`: Used for a specific service (e.g., `jellyfin.html` for `services/jellyfin.yml`).
+If you use a docker volume, you have to add `default.html` to it as well.
 
+# Running
+
+## Docker
+
+Do the following steps:
+1. Replace lines in `compose.example.yaml` mark with *#replace* with their correct values.
+2. Rename `compose.example.yaml` to `compose.yaml`. (alternatively add `-f compose.example.yaml` after `compose` below)
+
+Run: 
+```bash
+docker compose up -d --build
+```
 
 
 # Development
