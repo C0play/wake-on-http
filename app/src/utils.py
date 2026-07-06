@@ -6,7 +6,6 @@ designed to be called from Flask request handlers and rely on
 configuration provided by :class:`config.ServiceConfig`.
 """
 
-import subprocess
 import socket
 import time
 
@@ -32,20 +31,20 @@ def check_status(cfg: ServiceConfig) -> bool:
         ``True`` if a TCP connection could be established, ``False`` otherwise.
     """
 
-    hostname = cfg.HOST_IP
+    ip = cfg.HOST_IP
     port = cfg.HOST_PORT
 
     try:
-        with socket.create_connection((hostname, port), timeout=0.5):
-            logger.info(f"Checking {hostname}:{port} status: host online")
+        with socket.create_connection((ip, port), timeout=0.5):
+            logger.info(f"Checking {ip}:{port} status: host online")
             return True
     except OSError as e:
-        logger.info(f"Checking {hostname}:{port} status: {e}")
+        logger.info(f"Checking {ip}:{port} status: {e}")
         return False
     
 
 
-def wake(cfg: ServiceConfig, hostname: str, ip: str):
+def wake(cfg: ServiceConfig, identifier: str, ip: str):
     """Send a Wake-on-LAN packet for the configured host.
 
     This function enforces a short rate limit (40 seconds) per-MAC address
@@ -54,7 +53,7 @@ def wake(cfg: ServiceConfig, hostname: str, ip: str):
 
     Args:
         cfg: ServiceConfig with ``HOST_MAC`` and ``BROADCAST_IP``.
-        hostname: Hostname of the service requesing the wake.
+        identifier: Identifier of the service requesing the wake.
         ip: IP address of the device requesting the wake.
 
     Raises:
@@ -73,8 +72,31 @@ def wake(cfg: ServiceConfig, hostname: str, ip: str):
 
     logger.info(f"Waking {cfg.HOST_IP} via {cfg.BROADCAST_IP}")
 
-    cmd = ["wakeonlan", "-i", cfg.BROADCAST_IP, cfg.HOST_MAC]
-    subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=True, timeout=0.1)
+    __send_magic_packet(cfg.HOST_MAC)
 
     for notifier in NotificationServiceRegistry.get(cfg.NOTIFY):
-            notifier.send_wake(hostname, ip or "unknown")
+            notifier.notify_event_wake(identifier, ip or "unknown")
+
+
+
+def __send_magic_packet(mac: str) -> None:
+     
+    spacers = [":", "-", "_", " "]
+    try:
+        if present := [x for x in spacers if x in mac]:
+            for x in present:
+                mac = mac.replace(x, "")
+
+        if len(mac) > 12:
+            logger.debug(f"Invalid mac: {mac}")
+            return None
+        
+        mac = mac.lower()
+
+        frame: bytes = bytes.fromhex("FF"*6 + mac*16)
+
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_BROADCAST, 1)
+            sock.sendto(frame, ("255.255.255.255", 7))
+    except Exception as e:
+         logger.exception(f"Failed to send magic packet for {mac}")

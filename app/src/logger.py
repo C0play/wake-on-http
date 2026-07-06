@@ -51,7 +51,7 @@ _handler = logging.StreamHandler()
 _handler.setLevel(_numeric_level)
 _handler.setFormatter(
     logging.Formatter(
-        "[%(asctime)s] [%(request_id)s] %(levelname)s %(message)s",
+        "[%(asctime)s] [%(request_id)s] %(levelname)-9s %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 )

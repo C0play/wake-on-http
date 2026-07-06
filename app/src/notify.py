@@ -26,7 +26,7 @@ class NotificationService(ABC):
 
 
     @abstractmethod
-    def send_wake(self, service: str, ip: str) -> None:
+    def notify_event_wake(self, service: str, ip: str) -> None:
         ...
 
     
@@ -45,7 +45,7 @@ class NTFY(NotificationService):
         super().__init__(config)
 
     
-    def send_wake(self, service: str, ip: str) -> None:
+    def notify_event_wake(self, service: str, ip: str) -> None:
         try:
             data = f"Waking **{service}** for {ip}"
             headers = {

@@ -4,8 +4,9 @@ This module implements a small Flask application that:
 
 - Loads service configurations from YAML files via :class:`ServiceFactory`.
 - Exposes a health endpoint at ``/health``.
-- Routes all requests to a service determined by hostname and either redirects
-    to the service URL if it's online or triggers a Wake-on-LAN packet.
+- Routes all requests to a service determined by it's network location 
+  (or netloc + path) and either redirects to the service URL if it's
+  online or sends a Wake-on-LAN packet.
 
 Logging is performed via the project's ``logger`` instance.
 """
@@ -36,9 +37,11 @@ class Api:
     METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS']
 
 
-    def __init__(self) -> None:
+    def __init__(self, direct_netloc: str) -> None:
         self.app = Flask(__name__, template_folder=self.TEMPLATES_DIR)
         self.app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+        self.direct_service_netloc = direct_netloc
 
         signal.signal(signal.SIGTERM, Api.__handle_exit)
         signal.signal(signal.SIGINT, Api.__handle_exit)
@@ -131,20 +134,30 @@ class Api:
 
             Returns:
                 A Flask response object. Possible responses:
-                - 404 if no service is registered for the request hostname.
+                - 404 if no service is registered for the request identifier.
                 - 503 if the path is ignored for background requests.
                 - 302 redirect to the service URL when the target is already online.
                 - 202 plus a status page when a Wake-on-LAN packet was sent.
             """
 
             ip: str = request.headers.get('X-Forwarded-For', request.remote_addr) or "unknown"
-            hostname = urlparse(request.url).hostname or request.host.split(':')[0]
-            service = ServiceFactory.get_service(hostname)
+            parsed = urlparse(request.url)
+
+            if not parsed.netloc:
+                logger.warning(f"Could not determine network location from {request.url}")
+                return jsonify({"message": f"Service not found for {request.url}"}), 404
+
+            netloc = parsed.netloc
+            netloc_path = parsed.netloc + parsed.path
+
+            identifier = netloc_path if netloc == self.direct_service_netloc else netloc
+            service = ServiceFactory.get_service(identifier)
 
             if not service:
-                logger.warning(f"No service registered for hostname: {hostname}")
-                return jsonify({"message": f"Service not found for {hostname}"}), 404
+                logger.warning(f"No service registered for identifier: {identifier}")
+                return jsonify({"message": f"Service not found for identifier: {identifier}"}), 404
 
+            logger.debug(f"Retrieved service {service.cfg.file_metadata.path} for {identifier}")
             try:
 
                 if service.should_ignore(path):
@@ -152,10 +165,10 @@ class Api:
                     return service.respond("Server offline - background sync ignored", 503)
 
                 if service.check_status():
-                    logger.info(f"Server online, redirecting to {service.cfg.APP_URL}")
-                    return redirect(service.cfg.APP_URL)
+                    logger.info(f"Server online, redirecting to {request.url}")
+                    return redirect(request.url)
 
-                service.wake(hostname, ip)
+                service.wake(identifier, ip)
                 return service.respond("Waking up the server...", 202)
 
             except Exception as e:

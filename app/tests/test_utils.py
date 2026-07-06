@@ -48,7 +48,7 @@ class TestUtils:
         assert "skipped" in caplog.text
 
     @unittest.mock.patch("app.src.utils._last_wakes", {})
-    @unittest.mock.patch("app.src.utils.subprocess.run")
+    @unittest.mock.patch("app.src.utils.__send_magic_packet")
     @unittest.mock.patch("app.src.utils.NotificationServiceRegistry.get")
     def test_normal_wake(self, get, run, caplog):
 

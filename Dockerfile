@@ -5,9 +5,6 @@ WORKDIR /wake-on-http
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Wakeonlan
-RUN apt-get update && apt-get install -y wakeonlan && rm -rf /var/lib/apt/lists/*
-
 COPY app/src/ ./app/src/
 COPY templates/ ./templates/
 

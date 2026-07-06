@@ -20,7 +20,9 @@ from .logger import logger
 from .utils import check_status, wake
 
 
+
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 
 
 class Service:
@@ -34,27 +36,33 @@ class Service:
             config: ServiceConfig instance for this service.
         """
         filename = os.path.basename(config.file_metadata.path)
-        self.name = os.path.splitext(filename)[0]
+        self.filename = os.path.splitext(filename)[0]
+
+        parsed = urlparse(config.APP_URL)
+        identifier = parsed.netloc + parsed.path
+        if not identifier:
+            raise ValueError(f"Invalid url: {config.APP_URL}")
+        self.identifier = identifier
         self.cfg = config
 
 
     def check_status(self) -> bool:
         """Return True if the configured host is reachable.
-        S
+        
         Delegates to :func:`utils.check_status` which performs a TCP
         connection attempt to ``cfg.HOST_IP:cfg.HOST_PORT``.
         """
         return check_status(self.cfg)
 
 
-    def wake(self, hostname: str, ip: str) -> None:
+    def wake(self, subdomain: str, ip: str) -> None:
         """Send a Wake-on-LAN packet for this service.
 
         Args:
-            hostname: Hostname of the service requesing the wake.
+            subdomain: Subdomain of the service requesing the wake.
             ip: IP address of the device requesting the wake.
         """
-        wake(self.cfg, hostname, ip)
+        wake(self.cfg, subdomain, ip)
 
 
     def should_ignore(self, path: str) -> bool:
@@ -93,23 +101,24 @@ class Service:
         """
         try:
             accept_header = request.headers.get("Accept", "")
+            logger.info(f"Responding with {accept_header}")
             if "text/html" in accept_header:
                 TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
-                TEMPLATE_FILE = os.path.join(TEMPLATES_DIR, f"{self.name}.html")
+                TEMPLATE_FILE = os.path.join(TEMPLATES_DIR, f"{self.filename}.html")
 
                 if os.path.exists(TEMPLATE_FILE):
-                    template = render_template(f"{self.name}.html")
+                    template = render_template(f"{self.filename}.html")
                 else:
                     template = render_template(
                         f"default.html",
-                        service_name=self.name
+                        service_name=self.filename
                     )
 
                 response = make_response(template)
             else:
                 response = jsonify({
                     "message": message,
-                    "service_name": self.name,
+                    "service_name": self.identifier,
                     "service_url": self.cfg.APP_URL
                 })
 
@@ -126,11 +135,10 @@ class ServiceRegistry:
     def __init__(self) -> None:
         """Initialize an empty registry."""
         self._services: dict[str, Service] = {}
-        self._hostname_map: dict[str, str] = {}
 
 
     def register(self, service: Service) -> None:
-        """Register a service and update hostname mapping.
+        """Register a service.
 
         If a service with the same name already exists it will be
         unregistered first.
@@ -138,18 +146,14 @@ class ServiceRegistry:
         Args:
             service: Service instance to register.
         """
-        if service.name in self._services:
-            self.unregister(service.name)
+        if service.identifier in self._services:
+            self.unregister(service.identifier)
 
-        self._services[service.name] = service
-
-        hostname = urlparse(service.cfg.APP_URL).hostname
-        if hostname:
-            self._hostname_map[hostname] = service.name
+        self._services[service.identifier] = service
 
 
     def unregister(self, service_name: str) -> None:
-        """Remove a registered service and its hostname mapping.
+        """Remove a registered service.
 
         Args:
             service_name: Name of the service to remove.
@@ -157,31 +161,23 @@ class ServiceRegistry:
         Raises:
             KeyError: if the service is not present.
         """
-        service = self._services.pop(service_name)
-
-        hostname = urlparse(service.cfg.APP_URL).hostname
-        if hostname and hostname in self._hostname_map:
-            if self._hostname_map[hostname] == service_name:
-                del self._hostname_map[hostname]
+        del self._services[service_name]
 
 
-    def get_service_by_hostname(self, hostname: str) -> Service | None:
-        """Return the :class:`Service` for the given hostname, or ``None``.
+    def get_service(self, subdomain: str) -> Service | None:
+        """Return the :class:`Service` for the given subdomain, or ``None``.
 
         Args:
-            hostname: Request hostname (no port).
+            subdomain: Request subdomain.
 
         Returns:
             The matching Service instance or ``None`` if not found.
         """
-        service_name = self._hostname_map.get(hostname)
-        if service_name:
-            return self._services.get(service_name)
-        return None
+        return self._services.get(subdomain)
 
 
     def get_paths(self) -> list[str]:
-        """Return list of config file paths for all registered services."""
+        """Return list of yml config file paths for all registered services."""
         return [service.cfg.file_metadata.path for service in self._services.values()]
 
 
@@ -194,7 +190,7 @@ class ServiceRegistry:
         services = list(filter(lambda v: v.cfg.file_metadata.path == path, self._services.values()))
         if len(services) > 1:
             raise ValueError(f"Multiple services [{services}] reference the same config file: {path}")
-        return services[0].name
+        return services[0].identifier
 
 
     def get_configs(self) -> list[ServiceConfig]:
@@ -207,8 +203,8 @@ class ServiceFactory:
     """Discover, load and manage configured services.
 
     The factory maintains a global :class:`ServiceRegistry` and provides
-    convenience methods to load services from the ``configs/`` directory,
-    refresh them when files change, and map request hostnames to services.
+    convenience methods to load services from the ``services/`` directory,
+    refresh them when files change, and map request subdomains to services.
     """
 
     _service_registry: ServiceRegistry = ServiceRegistry()
@@ -233,16 +229,17 @@ class ServiceFactory:
 
 
     @classmethod
-    def get_service(cls, hostname: str) -> Service | None:
-        """Return the service associated with the given hostname.
+    def get_service(cls, subdomain: str) -> Service | None:
+        """Return the service associated with the given subdomain.
 
         Args:
-            hostname: Request hostname (no port) to look up.
+            subdomain: Request subdomain (no port) to look up.
 
         Returns:
             The matching :class:`Service` instance or ``None`` if not found.
         """
-        return cls._service_registry.get_service_by_hostname(hostname)
+        logger.debug(f"Getting service {subdomain}")
+        return cls._service_registry.get_service(subdomain)
 
 
     @classmethod
@@ -311,18 +308,11 @@ class ServiceFactory:
         """
         try:
             config = ServiceConfig.from_yaml(config_path)
-            
-            # Extract hostname from APP_URL
-            hostname = urlparse(config.APP_URL).hostname
-            
-            if not hostname:
-                logger.error(f"Could not determine hostname from APP_URL: {config.APP_URL}")
-                return
 
             new_service = Service(config)
             cls._service_registry.register(new_service)
 
-            logger.info(f"Loaded service: {new_service.name} for host: {hostname}")
+            logger.info(f"Loaded service: {new_service.identifier} for host: {config.APP_URL}")
             
         except Exception as e:
             logger.error(f"Failed to load service from {config_path}: {e}")

@@ -11,7 +11,7 @@ from ..src.api import Api
 
 @pytest.fixture
 def client():
-    app = Api().app
+    app = Api("wake").app
     app.config["TESTING"] = True
     with app.test_client() as client:
         yield client
@@ -40,7 +40,7 @@ class TestValidRequest:
     def test_offline(self, client: flask.testing.FlaskClient, caplog):
         
         with unittest.mock.patch("app.src.service.check_status", return_value=False), \
-             unittest.mock.patch("app.src.utils.subprocess.run"), \
+             unittest.mock.patch("app.src.utils.__send_magic_packet"), \
              unittest.mock.patch("app.src.notify.NotificationServiceRegistry.get", return_value=[]):
             resp = client.get("/", base_url="http://mock.local:8096")
 
