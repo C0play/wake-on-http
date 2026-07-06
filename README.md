@@ -2,6 +2,10 @@
 
 **Wake-on-http** provides a small service that wakes offline servers (via Wake-on-LAN) when a request is made to one of their services through a reverse proxy (I use Nginx Proxy Manager). When a user tries to access a service on an offline server, this application receives the forwarded request, sends a WOL packet to the target machine, and displays a "Waking up..." status page. Once the service is online, the user is redirected to the actual application.
 
+## Demo
+
+![alt text](demo.gif){style="display: block; margin: 0 auto"}
+
 ## Use Case
 
 **Wake-on-http** is designed for homelabs, where energy consumption is important, and a low-power computer is available. In combination with a simple shutdown script (available on my GitHub) to power off the server when it’s not needed, this project can save you a lot in electricity bills.
