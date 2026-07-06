@@ -4,7 +4,9 @@
 
 ## Demo
 
-![alt text](demo.gif){style="display: block; margin: 0 auto"}
+<p align="center">
+  <img src="demo.gif">
+</p>
 
 ## Use Case
 
