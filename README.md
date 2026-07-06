@@ -5,7 +5,7 @@
 ## Demo
 
 <p align="center">
-  <img src="demo.gif">
+  <img src="demo.mp4" alt="Demo Video">
 </p>
 
 ## Use Case
