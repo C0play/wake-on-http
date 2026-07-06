@@ -42,6 +42,7 @@ class Api:
         self.app.config['TEMPLATES_AUTO_RELOAD'] = True
 
         self.direct_service_netloc = direct_netloc
+        logger.info(f"Configured direct netloc: {direct_netloc}")
 
         signal.signal(signal.SIGTERM, Api.__handle_exit)
         signal.signal(signal.SIGINT, Api.__handle_exit)
