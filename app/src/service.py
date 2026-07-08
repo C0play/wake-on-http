@@ -84,7 +84,7 @@ class Service:
         return any(path.startswith(p) for p in self.cfg.IGNORED_PATHS)
 
 
-    def respond(self, message: str, status: int = 200) -> tuple[Response, int]:
+    def respond(self, message: str, sse_url: str, status: int = 200) -> tuple[Response, int]:
         """Return an appropriate Flask response for the service.
 
         If the client prefers HTML (``Accept`` contains ``text/html``), a
@@ -94,6 +94,7 @@ class Service:
 
         Args:
             message: Message to include in the JSON response.
+            sse_url: The url the client will use to wait for events.
             status: HTTP status code to return.
 
         Returns:
@@ -111,7 +112,8 @@ class Service:
                 else:
                     template = render_template(
                         f"default.html",
-                        service_name=self.filename
+                        service_name=self.filename,
+                        url=sse_url,
                     )
 
                 response = make_response(template)
@@ -238,7 +240,6 @@ class ServiceFactory:
         Returns:
             The matching :class:`Service` instance or ``None`` if not found.
         """
-        logger.debug(f"Getting service {subdomain}")
         return cls._service_registry.get_service(subdomain)
 
 

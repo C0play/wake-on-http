@@ -14,7 +14,14 @@ if __name__ == "__main__":
         port = int(os.getenv("SERVER_PORT", "5000"))
         
         logger.setLevel(_resolve_level(level))
-        Api(direct).run(port)
+        
+        options = {
+            "bind": f"0.0.0.0:{port}",
+            "workers": 1,
+            "worker_class": "gevent",
+        }
+        
+        Api(direct, port, options).run()
         
     except Exception as e:
         logger.error(f"Failed to start Flask app: {e}")

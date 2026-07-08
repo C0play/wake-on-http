@@ -97,40 +97,39 @@
             <path d="M2 12l10 5 10-5" />
         </svg>
 
-        <h1>Service <span class="service_style">{{service_name}}</span> is starting</h1>
-        <p>This page will reload automatically.</p>
+        <h1 id="main_txt">Service <span class="service_style">{{service_name}}</span> is starting</h1>
+        <p id="sub_txt">This page will reload automatically.</p>
         <div class="spinner"></div>
     </div>
     <script>
-        (function () {
-            const RELOAD_MS = 20000; // 20 seconds
-            let reloadTimer = null;
+        var url = "{{ url }}";
+        var event_url = `//${url}/online/?url=${encodeURIComponent(window.location)}`;
+        const evtSource = new EventSource(event_url);
 
-            function clearReload() {
-                if (reloadTimer) {
-                    clearTimeout(reloadTimer);
-                    reloadTimer = null;
-                }
+        evtSource.addEventListener("online", (event) => {
+            var data = JSON.parse(event.data)
+            if (data.online === true) {
+                evtSource.close()
+                location.reload()
             }
+        })
 
-            function scheduleReload() {
-                clearReload();
-                reloadTimer = setTimeout(() => {
-                    try { location.reload(); } catch (e) { /* ignore */ }
-                }, RELOAD_MS);
-            }
+        const error_h1 = document.createElement("h1");
+        error_h1.id = "main_txt"
+        error_h1.innerHTML = `Service <span class="service_style"> {{service_name}} </span> failed to start`
 
-            function onVisibilityChange() {
-                if (document.visibilityState === 'visible') {
-                    scheduleReload();
-                } else {
-                    clearReload();
-                }
-            }
+        evtSource.addEventListener("error", (event) => {
+            var data = JSON.parse(event.data);
 
-            document.addEventListener('visibilitychange', onVisibilityChange, false);
-            if (document.visibilityState === 'visible') scheduleReload();
-        })();
+            const main_txt = document.getElementById("main_txt");
+            main_txt.replaceWith(error_h1)
+
+            const sub_txt = document.getElementById("sub_txt");
+            sub_txt.textContent = `Error: ${data.msg}`;
+
+            evtSource.close()
+        })
+
     </script>
 </body>
 

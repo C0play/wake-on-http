@@ -1,5 +1,8 @@
 flask
+flask-cors
 PyYAML
 requests
 pytest
 pytest-cov
+gunicorn
+gevent

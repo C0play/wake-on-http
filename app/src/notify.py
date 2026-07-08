@@ -1,4 +1,3 @@
-import requests
 import os
 
 from abc import ABC, abstractmethod
@@ -47,6 +46,8 @@ class NTFY(NotificationService):
     
     def notify_event_wake(self, service: str, ip: str) -> None:
         try:
+            import requests
+
             data = f"Waking **{service}** for {ip}"
             headers = {
                 "Title": "wake-on-http",

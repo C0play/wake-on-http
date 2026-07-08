@@ -140,6 +140,7 @@ class ServiceConfig(FileConfig):
     BROADCAST_IP: str
     NOTIFY: list[str]
     IGNORED_PATHS: list[str]
+    TIMEOUT: int
 
 
     @classmethod
@@ -160,8 +161,13 @@ class ServiceConfig(FileConfig):
         data = super()._parse_yaml(
             path,
             ["HOST_MAC", "HOST_IP", "APP_URL"],
-            {"HOST_PORT": 22, "BROADCAST_IP": "255.255.255.255",
-             "IGNORED_PATHS": [], "NOTIFY": []}
+            {
+                "TIMEOUT": 120,
+                "HOST_PORT": 22,
+                "BROADCAST_IP": "255.255.255.255",
+                "IGNORED_PATHS": [],
+                "NOTIFY": []
+            }
         )
 
         # Normalize ignored paths: strip leading slash to allow consistent comparisons

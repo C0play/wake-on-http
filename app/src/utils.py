@@ -8,6 +8,7 @@ configuration provided by :class:`config.ServiceConfig`.
 
 import socket
 import time
+from urllib.parse import urlparse
 
 from .notify import NotificationServiceRegistry
 from .config import ServiceConfig
@@ -36,10 +37,10 @@ def check_status(cfg: ServiceConfig) -> bool:
 
     try:
         with socket.create_connection((ip, port), timeout=0.5):
-            logger.info(f"Checking {ip}:{port} status: host online")
+            logger.debug(f"Checking {ip}:{port} status: host online")
             return True
     except OSError as e:
-        logger.info(f"Checking {ip}:{port} status: {e}")
+        logger.debug(f"Checking {ip}:{port} status: {e}")
         return False
     
 
@@ -77,6 +78,18 @@ def wake(cfg: ServiceConfig, identifier: str, ip: str):
     for notifier in NotificationServiceRegistry.get(cfg.NOTIFY):
             notifier.notify_event_wake(identifier, ip or "unknown")
 
+
+def get_identifier(direct_service_netloc: str, url: str) -> str | None:
+
+    parsed = urlparse(url)
+    if not parsed.netloc:
+        logger.warning(f"Could not determine network location from {url}")
+        return None
+
+    netloc = parsed.netloc
+    netloc_path = parsed.netloc + parsed.path
+
+    return (netloc_path if netloc == direct_service_netloc else netloc)
 
 
 def __send_magic_packet(mac: str) -> None:
