@@ -29,6 +29,7 @@ from flask import (
         jsonify,
         render_template,
         make_response,
+        send_from_directory,
         request,
         g,
 )
@@ -44,6 +45,7 @@ class Api(BaseApplication):
 
     BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
+    STATICS_DIR = os.path.join(BASE_DIR, "static")
 
 
     def __init__(self, direct_netloc: str, port: int, options: dict = {}) -> None:
@@ -66,7 +68,11 @@ class Api(BaseApplication):
 
     def __get_app(self) -> Flask:
 
-        app = Flask(__name__, template_folder = self.TEMPLATES_DIR)
+        app = Flask(
+            __name__,
+            template_folder = self.TEMPLATES_DIR,
+            static_folder = self.STATICS_DIR,
+        )
 
         app.config['TEMPLATES_AUTO_RELOAD'] = True
         app.config['SERVER_NAME'] = self.direct_netloc
@@ -112,6 +118,34 @@ class Api(BaseApplication):
             except Exception as e:
                 logger.exception(f"Internal: {e}")
                 return make_response(f"Internal error: {str(e)}", 500)
+
+
+        @app.route("/static/<file>", host=self.direct_netloc)
+        def handle_styles(file):
+            return send_from_directory(self.STATICS_DIR, file)
+
+
+        @app.route("/", host=self.direct_netloc)
+        def handle_root():
+            return redirect("/dashboard")
+
+
+        @app.route("/dashboard", host=self.direct_netloc)
+        def handle_dashboard():
+            services = ServiceFactory.get_hosts(self.direct_netloc)
+
+            hosts = [(
+                s.filename,
+                s.cfg.HOST_MAC,
+                s.cfg.HOST_IP,
+                s.cfg.APP_URL) for s in services
+            ]
+
+            template = render_template(
+                "index.html",
+                hosts=hosts
+            )
+            return make_response(template)
 
 
         @app.route("/online/", host=self.direct_netloc)

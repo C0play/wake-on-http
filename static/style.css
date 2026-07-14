@@ -1,0 +1,64 @@
+html {
+    background: #dbdbdb;
+}
+
+.hosts {
+    display: flex;
+    justify-content: space-evenly;
+    flex-wrap: wrap;
+}
+
+.host {
+    display: flex;
+    justify-content: space-between;
+    width: 450px;
+    height: 120px;
+    margin: 30px 30px;
+
+    background: #101010;
+    color: #dbdbdb;
+    border: 20px solid #101010;
+    border-radius: 1.2rem;
+    box-shadow: 6px 6px 12px rgba(16, 16, 16, 0.45);
+}
+
+.hostinfo {
+    width: 60%;
+    height: 100%;
+}
+
+.hostinfo tr:first-child {
+    font-size: 1.2em;
+    font-weight: bold;
+}
+
+.hostinfo tr:last-child {
+    font-size: 1.07em;
+    font-weight: bold;
+    color: #e55835;
+}
+
+.hostwake {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.hostwake>button {
+    height: 100px;
+    width: 100px;
+
+    background: #63ff8a;
+    border: 5px solid rgb(99, 255, 138);
+    border-radius: 1.05rem;
+    color: #145c0c;
+    font: bold 1.5rem "Lucida Console", sans-serif;
+    box-shadow: 6px 6px 4px rgba(99, 255, 138, 0.3);
+}
+
+.hostwake>button:hover {
+    translate: 6px 6px;
+    transition: 0.23s ease-in-out;
+    box-shadow: inset 6px 6px 4px rgba(90, 90, 90, 0.4);
+    border: none;
+}

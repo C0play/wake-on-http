@@ -244,6 +244,25 @@ class ServiceFactory:
 
 
     @classmethod
+    def get_hosts(cls, direct_netloc: str) -> list[Service]:
+
+
+        services = []
+        configs = cls._service_registry.get_configs()
+
+        for config in configs:
+            parsed = urlparse(config.APP_URL)
+            netloc = parsed.netloc
+            if netloc != direct_netloc:
+                continue
+            logger.debug(f"Service '{config.APP_URL}' is a host.")
+            identifier = netloc + parsed.path
+            services.append(cls.get_service(identifier))
+
+        return services
+
+
+    @classmethod
     def refresh(cls) -> None:
         """Refresh registry: discover additions/removals and reload modified files.
 
