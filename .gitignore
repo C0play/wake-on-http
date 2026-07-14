@@ -32,6 +32,7 @@ htmlcov/
 **/notifiers/*
 **/templates/*
 !**/templates/default.html
+!**/templates/index.html
 
 
 # VS Code

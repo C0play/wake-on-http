@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>wake-on-http</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="hosts">
+        {% for hostname, mac, ip, wake_url in hosts %}
+        <div class="host">
+            <table class="hostinfo">
+                <tr>
+                    <td>{{hostname}}</td>
+                </tr>
+                <tr>
+                    <td>{{mac}}</td>
+                </tr>
+                <tr>
+                    <td>{{ip}}</td>
+                </tr>
+                <tr id="{{wake_url}}">
+                    <td>Offline</td>
+                </tr>
+            </table>
+            <form class="hostwake" action="{{wake_url}}" method="get">
+                <button type="submit">WAKE</button>
+            </form>
+        </div>
+        {% endfor %}
+    </div>
+    <script src="/static/scripts.js"></script>
+</body>
+
+</html>
