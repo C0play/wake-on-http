@@ -13,11 +13,11 @@ html {
     justify-content: space-between;
     width: 450px;
     height: 120px;
-    margin: 30px 30px;
+    margin: 20px 20px;
 
     background: #101010;
     color: #dbdbdb;
-    border: 20px solid #101010;
+    border: 15px solid #101010;
     border-radius: 1.2rem;
     box-shadow: 6px 6px 12px rgba(16, 16, 16, 0.45);
 }
@@ -33,9 +33,26 @@ html {
 }
 
 .hostinfo tr:last-child {
-    font-size: 1.07em;
+    font-size: 1.1em;
     font-weight: bold;
-    color: #e55835;
+    display: flex;
+    justify-content: space-between;
+}
+
+.status-offline {
+    color: #727272;
+}
+
+.status-online {
+    color: #13f277;
+}
+
+.status-error {
+    color: #f21313;
+}
+
+.status-starting {
+    color: #13b3f2;
 }
 
 .hostwake {
@@ -45,8 +62,8 @@ html {
 }
 
 .hostwake>button {
-    height: 100px;
-    width: 100px;
+    height: 90px;
+    width: 90px;
 
     background: #63ff8a;
     border: 5px solid rgb(99, 255, 138);

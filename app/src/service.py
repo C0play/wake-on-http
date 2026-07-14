@@ -84,7 +84,7 @@ class Service:
         return any(path.startswith(p) for p in self.cfg.IGNORED_PATHS)
 
 
-    def respond(self, message: str, sse_url: str, status: int = 200) -> tuple[Response, int]:
+    def respond(self, message: str, service_status: str, sse_url: str, status: int = 200) -> tuple[Response, int]:
         """Return an appropriate Flask response for the service.
 
         If the client prefers HTML (``Accept`` contains ``text/html``), a
@@ -120,15 +120,14 @@ class Service:
             else:
                 response = jsonify({
                     "message": message,
-                    "service_name": self.identifier,
-                    "service_url": self.cfg.APP_URL
+                    "service_status": service_status,
                 })
 
             return response, status
 
         except Exception as e:
             logger.exception(e)
-            return jsonify({"error": str(e)}), status
+            return jsonify({"error": str(e)}), 500
 
 
 

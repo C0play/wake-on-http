@@ -134,11 +134,14 @@ class Api(BaseApplication):
         def handle_dashboard():
             services = ServiceFactory.get_hosts(self.direct_netloc)
 
-            hosts = [(
-                s.filename,
-                s.cfg.HOST_MAC,
-                s.cfg.HOST_IP,
-                s.cfg.APP_URL) for s in services
+            hosts = [
+                (
+                    s.filename,
+                    s.cfg.HOST_MAC,
+                    s.cfg.HOST_IP,
+                    s.cfg.APP_URL,
+                    "Online" if check_status(s.cfg) else "Offline"
+                ) for s in services
             ]
 
             template = render_template(
@@ -169,6 +172,7 @@ class Api(BaseApplication):
                 logger.info(f"(/online) Waiting for service '{service.filename}' to start.")
                 wait_time = 10
                 tries = service.cfg.TIMEOUT / wait_time
+                logger.debug(f"Trying {tries} times: timeout: {service.cfg.TIMEOUT}")
                 try:
                     while tries > 0 and not check_status(service.cfg):
                         yield 'event: online\ndata: {"online": false}\n\n'
@@ -227,31 +231,40 @@ class Api(BaseApplication):
             identifier = get_identifier(self.direct_netloc, request.url)
             if not identifier:
                 logger.warning(f"Could not determine network location from {request.url}")
-                return jsonify({"message": f"Could not determine network location from {request.url}"}), 400
+                return jsonify({
+                    "message": f"Could not determine network location from {request.url}",
+                    "service_status": "error",
+                }), 400
             
             logger.info(f"Getting service {identifier}")
             service = ServiceFactory.get_service(identifier)
             if not service:
                 logger.warning(f"No service registered for identifier: {identifier}")
-                return jsonify({"message": f"Service not found for identifier: {identifier}"}), 404
+                return jsonify({
+                    "message": f"Service not found for identifier: {identifier}",
+                    "service_status": "error",
+                }), 404
 
             logger.debug(f"Retrieved service {service.cfg.file_metadata.path} for {identifier}")
             try:
 
                 if service.should_ignore(path):
                     logger.info(f"Requested path '{path}' ignored for waking")
-                    return service.respond("Server offline - background sync ignored", self.direct_netloc, 503)
+                    return service.respond("Server offline - background sync ignored", "offline", self.direct_netloc, 503)
 
                 if service.check_status():
-                    logger.info(f"Server online, redirecting to {request.url}")
-                    return redirect(request.url)
+                    if identifier.startswith(self.direct_netloc):
+                        return service.respond(f"Host {service.filename} online", "online", self.direct_netloc, 200)
+                    
+                    logger.info(f"Server online, redirecting to {service.cfg.APP_URL}")
+                    return redirect(service.cfg.APP_URL)
 
                 service.wake(identifier, ip)
-                return service.respond("Waking up the server...", self.direct_netloc, 202)
+                return service.respond("Waking up the server...", "offline", self.direct_netloc, 202)
 
             except Exception as e:
                 logger.exception(f"Internal error: {e}")
-                return service.respond(f"Internal error: {str(e)}", self.direct_netloc, 500)
+                return service.respond(f"Internal error: {str(e)}", "error", self.direct_netloc, 500)
 
 
 

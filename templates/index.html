@@ -10,7 +10,8 @@
 
 <body>
     <div class="hosts">
-        {% for hostname, mac, ip, wake_url in hosts %}
+        {% for hostname, mac, ip, wake_url, status in hosts %}
+        {% set status_style = "status-online" if status=="Online" else "status-offline"%}
         <div class="host">
             <table class="hostinfo">
                 <tr>
@@ -22,8 +23,8 @@
                 <tr>
                     <td>{{ip}}</td>
                 </tr>
-                <tr id="{{wake_url}}">
-                    <td>Offline</td>
+                <tr id="{{wake_url}}" class="{{status_style}}">
+                    <td>{{status}}</td>
                 </tr>
             </table>
             <form class="hostwake" action="{{wake_url}}" method="get">

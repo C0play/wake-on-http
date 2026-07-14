@@ -82,7 +82,8 @@ class FileConfig(ABC):
 
         # Ensure optional fields are not None
         for field, default in optional_fields.items():
-            data[field] = data.get(field) if data.get(field) else default
+            filedata = data.get(field, None)
+            data[field] = filedata if filedata is not None else default
 
         # File metadata
         mtime = os.path.getmtime(path)
