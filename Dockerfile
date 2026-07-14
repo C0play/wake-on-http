@@ -7,6 +7,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app/src/ ./app/src/
 COPY templates/ ./templates/
+COPY static/ ./static/
 
 ENV PYTHONUNBUFFERED=1
 ENV SERVER_PORT=5000
