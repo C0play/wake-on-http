@@ -167,7 +167,7 @@ class Api(BaseApplication):
                 ), 404
 
             start_event = threading.Event()
-            self.service_online_events[service.identifier] = start_event
+            self.service_online_events[service.filename] = start_event
 
             def wait():
                 logger.info(
@@ -187,7 +187,7 @@ class Api(BaseApplication):
                         yield 'event: error\ndata: {"msg": "timeout exceeded"}\n\n'
 
                     start_event.clear()
-                    del self.service_online_events[service.identifier]
+                    del self.service_online_events[service.filename]
                 except GeneratorExit:
                     logger.info("(/online) Client closed.")
                 except Exception:
