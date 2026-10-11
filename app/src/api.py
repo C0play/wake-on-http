@@ -13,10 +13,9 @@ Logging is performed via the project's ``logger`` instance.
 
 import signal
 import sys
-import os
+import threading
 import uuid
-import time
-
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlparse
 
@@ -49,7 +48,7 @@ class Api(BaseApplication):
 
 
     def __init__(self, direct_netloc: str, port: int, options: dict = {}) -> None:
-        
+
         self.options = options
         self.port = port
         self.direct_netloc = direct_netloc
@@ -61,6 +60,7 @@ class Api(BaseApplication):
         signal.signal(signal.SIGTERM, Api.__handle_exit)
         signal.signal(signal.SIGINT, Api.__handle_exit)
 
+        self.service_online_events: dict[str, threading.Event] = {}
         ServiceFactory.load_all()
         NotificationServiceRegistry.load_all()
 
@@ -157,24 +157,35 @@ class Api(BaseApplication):
 
             url = request.args.get("url", None)
             if not url:
-                return jsonify({"message": f"You must specify the request url"}), 400
+                return jsonify({"message": "You must specify the request url"}), 400
 
             identifier = get_identifier(self.direct_netloc, url)
             if not identifier:
-                return jsonify({"message": f"Could not determine network location from {url}"}), 400
+                return jsonify(
+                    {"message": f"Could not determine network location from {url}"}
+                ), 400
 
             service = ServiceFactory.get_service(identifier)
             if not service:
-                logger.error(f"(/online) No service registered for identifier: {identifier}")
-                return jsonify({"message": f"Service not found for identifier: {identifier}"}), 404
+                logger.error(
+                    f"(/online) No service registered for identifier: {identifier}"
+                )
+                return jsonify(
+                    {"message": f"Service not found for identifier: {identifier}"}
+                ), 404
+
+            start_event = threading.Event()
+            self.service_online_events[service.identifier] = start_event
 
             def wait():
-                logger.info(f"(/online) Waiting for service '{service.filename}' to start.")
-                wait_time = 10
-                tries = service.cfg.TIMEOUT / wait_time
-                logger.debug(f"Trying {tries} times: timeout: {service.cfg.TIMEOUT}")
+                logger.info(
+                    f"(/online) Waiting for service '{service.filename}' to start."
+                )
+                logger.debug(
+                    f"(/online) Waiting {service.cfg.TIMEOUT} seconds for service"
+                )
                 try:
-                    while tries > 0 and not check_status(service.cfg):
+                    if not start_event.wait(service.cfg.TIMEOUT):
                         yield 'event: online\ndata: {"online": false}\n\n'
                         tries -= 1
                         time.sleep(wait_time)
@@ -185,8 +196,15 @@ class Api(BaseApplication):
                     else:
                         logger.info(f"(/online) Service '{service.filename}' started.")
                         yield 'event: online\ndata: {"online": true}\n\n'
+                    start_event.clear()
+                    del self.service_online_events[service.identifier]
                 except GeneratorExit:
                     logger.info("(/online) Client closed.")
+                except Exception:
+                    yield 'event: error\ndata: {"msg": "timeout exceeded"}\n\n'
+                    logger.exception(
+                        f"(/online) Service '{service.filename}' start timed out."
+                    )
 
             return Response(
                 wait(),
@@ -195,9 +213,13 @@ class Api(BaseApplication):
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
                     "X-Accel-Buffering": "no",
-                }
+                },
             )
 
+        @app.route("/online/set/<service>", host=self.direct_netloc)
+        def handle_mark_as_online(service: str):
+            self.service_online_events[service].set()
+            return Response(status=HTTPStatus.NO_CONTENT)
 
         @app.route("/health", host=f"127.0.0.1:{self.port}")
         def handle_health():
