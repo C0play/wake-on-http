@@ -207,6 +207,12 @@ class Api(BaseApplication):
 
         @app.route("/online/set/<service>", host=self.direct_netloc)
         def handle_mark_as_online(service: str):
+            if service not in self.service_online_events:
+                logger.info(
+                    f"(/online) Service '{service}' woke up after request timed out."
+                )
+                return Response(status=HTTPStatus.NO_CONTENT)
+
             self.service_online_events[service].set()
             return Response(status=HTTPStatus.NO_CONTENT)
 
