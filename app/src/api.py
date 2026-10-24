@@ -4,53 +4,54 @@ This module implements a small Flask application that:
 
 - Loads service configurations from YAML files via :class:`ServiceFactory`.
 - Exposes a health endpoint at ``/health``.
-- Routes all requests to a service determined by it's network location 
+- Routes all requests to a service determined by it's network location
   (or netloc + path) and either redirects to the service URL if it's
   online or sends a Wake-on-LAN packet.
 
 Logging is performed via the project's ``logger`` instance.
 """
 
+import os
 import signal
 import sys
-import os
+import threading
 import uuid
-import time
-
+from http import HTTPStatus
 from typing import Any
 from urllib.parse import urlparse
 
-from gunicorn.app.base import BaseApplication
-from flask_cors import cross_origin
 from flask import (
-        Flask,
-        redirect,
-        Response,
-        jsonify,
-        render_template,
-        make_response,
-        send_from_directory,
-        request,
-        g,
+    Flask,
+    Response,
+    g,
+    jsonify,
+    make_response,
+    redirect,
+    render_template,
+    request,
+    send_from_directory,
 )
+from flask_cors import cross_origin
+from gunicorn.app.base import BaseApplication
 
-from .utils import check_status, get_identifier
-from .service import ServiceFactory
-from .notify import NotificationServiceRegistry
 from .logger import logger
-
+from .notify import NotificationServiceRegistry
+from .service import ServiceFactory
+from .utils import check_status, get_identifier
 
 
 class Api(BaseApplication):
-
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    BASE_DIR = os.path.dirname(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    )
     TEMPLATES_DIR = os.path.join(BASE_DIR, "templates")
     STATICS_DIR = os.path.join(BASE_DIR, "static")
 
+    def __init__(
+        self, direct_netloc: str, port: int, options: dict | None = None
+    ) -> None:
 
-    def __init__(self, direct_netloc: str, port: int, options: dict = {}) -> None:
-        
-        self.options = options
+        self.options = options if options is not None else {}
         self.port = port
         self.direct_netloc = direct_netloc
 
@@ -61,29 +62,26 @@ class Api(BaseApplication):
         signal.signal(signal.SIGTERM, Api.__handle_exit)
         signal.signal(signal.SIGINT, Api.__handle_exit)
 
+        self.service_online_events: dict[str, threading.Event] = {}
         ServiceFactory.load_all()
         NotificationServiceRegistry.load_all()
-
-
 
     def __get_app(self) -> Flask:
 
         app = Flask(
             __name__,
-            template_folder = self.TEMPLATES_DIR,
-            static_folder = self.STATICS_DIR,
+            template_folder=self.TEMPLATES_DIR,
+            static_folder=self.STATICS_DIR,
         )
 
-        app.config['TEMPLATES_AUTO_RELOAD'] = True
-        app.config['SERVER_NAME'] = self.direct_netloc
+        app.config["TEMPLATES_AUTO_RELOAD"] = True
+        app.config["SERVER_NAME"] = self.direct_netloc
         app.url_map.host_matching = True
 
         self.__register_routes(app)
         self.__register_middleware(app)
 
         return app
-
-
 
     def __register_routes(self, app: Flask):
 
@@ -116,19 +114,16 @@ class Api(BaseApplication):
                 return make_response(template)
 
             except Exception as e:
-                logger.exception(f"Internal: {e}")
-                return make_response(f"Internal error: {str(e)}", 500)
-
+                logger.exception("Preview")
+                return make_response(f"Internal error: {e}", 500)
 
         @app.route("/static/<file>", host=self.direct_netloc)
         def handle_styles(file):
             return send_from_directory(self.STATICS_DIR, file)
 
-
         @app.route("/", host=self.direct_netloc)
         def handle_root():
             return redirect("/dashboard")
-
 
         @app.route("/dashboard", host=self.direct_netloc)
         def handle_dashboard():
@@ -140,16 +135,13 @@ class Api(BaseApplication):
                     s.cfg.HOST_MAC,
                     s.cfg.HOST_IP,
                     s.cfg.APP_URL,
-                    "Online" if check_status(s.cfg) else "Offline"
-                ) for s in services
+                    "Online" if check_status(s.cfg) else "Offline",
+                )
+                for s in services
             ]
 
-            template = render_template(
-                "index.html",
-                hosts=hosts
-            )
+            template = render_template("index.html", hosts=hosts)
             return make_response(template)
-
 
         @app.route("/online/", host=self.direct_netloc)
         @cross_origin()
@@ -157,36 +149,51 @@ class Api(BaseApplication):
 
             url = request.args.get("url", None)
             if not url:
-                return jsonify({"message": f"You must specify the request url"}), 400
+                return jsonify({"message": "You must specify the request url"}), 400
 
             identifier = get_identifier(self.direct_netloc, url)
             if not identifier:
-                return jsonify({"message": f"Could not determine network location from {url}"}), 400
+                return jsonify(
+                    {"message": f"Could not determine network location from {url}"}
+                ), 400
 
             service = ServiceFactory.get_service(identifier)
             if not service:
-                logger.error(f"(/online) No service registered for identifier: {identifier}")
-                return jsonify({"message": f"Service not found for identifier: {identifier}"}), 404
+                logger.error(
+                    f"(/online) No service registered for identifier: {identifier}"
+                )
+                return jsonify(
+                    {"message": f"Service not found for identifier: {identifier}"}
+                ), 404
+
+            start_event = threading.Event()
+            self.service_online_events[service.filename] = start_event
 
             def wait():
-                logger.info(f"(/online) Waiting for service '{service.filename}' to start.")
-                wait_time = 10
-                tries = service.cfg.TIMEOUT / wait_time
-                logger.debug(f"Trying {tries} times: timeout: {service.cfg.TIMEOUT}")
+                logger.info(
+                    f"(/online) Waiting for service '{service.filename}' to start."
+                )
+                logger.debug(
+                    f"(/online) Waiting {service.cfg.TIMEOUT} seconds for service"
+                )
                 try:
-                    while tries > 0 and not check_status(service.cfg):
-                        yield 'event: online\ndata: {"online": false}\n\n'
-                        tries -= 1
-                        time.sleep(wait_time)
-
-                    if tries <= 0:
-                        yield 'event: error\ndata: {"msg": "timeout exceeded"}\n\n'
-                        logger.warning(f"(/online) Service '{service.filename}' start timed out.")
-                    else:
+                    if start_event.wait(service.cfg.TIMEOUT):
                         logger.info(f"(/online) Service '{service.filename}' started.")
                         yield 'event: online\ndata: {"online": true}\n\n'
+                    else:
+                        logger.info(
+                            f"(/online) Service '{service.filename}' timed out."
+                        )
+                        yield 'event: error\ndata: {"msg": "timeout exceeded"}\n\n'
+
+                    start_event.clear()
+                    del self.service_online_events[service.filename]
                 except GeneratorExit:
                     logger.info("(/online) Client closed.")
+                except Exception:
+                    logger.exception(
+                        f"(/online) Service '{service.filename}' start timed out."
+                    )
 
             return Response(
                 wait(),
@@ -195,9 +202,19 @@ class Api(BaseApplication):
                     "Cache-Control": "no-cache",
                     "Connection": "keep-alive",
                     "X-Accel-Buffering": "no",
-                }
+                },
             )
 
+        @app.route("/online/set/<service>", host=self.direct_netloc)
+        def handle_mark_as_online(service: str):
+            if service not in self.service_online_events:
+                logger.info(
+                    f"(/online) Service '{service}' woke up after request timed out."
+                )
+                return Response(status=HTTPStatus.NO_CONTENT)
+
+            self.service_online_events[service].set()
+            return Response(status=HTTPStatus.NO_CONTENT)
 
         @app.route("/health", host=f"127.0.0.1:{self.port}")
         def handle_health():
@@ -208,9 +225,8 @@ class Api(BaseApplication):
             """
             return jsonify({"status": "ok"})
 
-
-        @app.route('/', defaults={'path': ''}, host='<host>')
-        @app.route('/<path:path>', host='<host>')
+        @app.route("/", defaults={"path": ""}, host="<host>")
+        @app.route("/<path:path>", host="<host>")
         def main(host, path):
             """Main catch-all route.
 
@@ -226,47 +242,68 @@ class Api(BaseApplication):
                 - 202 plus a status page when a Wake-on-LAN packet was sent.
             """
 
-            ip: str = request.headers.get('X-Forwarded-For', request.remote_addr) or "unknown"
+            ip: str = (
+                request.headers.get("X-Forwarded-For", request.remote_addr) or "unknown"
+            )
 
             identifier = get_identifier(self.direct_netloc, request.url)
             if not identifier:
-                logger.warning(f"Could not determine network location from {request.url}")
-                return jsonify({
-                    "message": f"Could not determine network location from {request.url}",
-                    "service_status": "error",
-                }), 400
-            
+                logger.warning(
+                    f"Could not determine network location from {request.url}"
+                )
+                return jsonify(
+                    {
+                        "message": f"Could not determine network location from {request.url}",
+                        "service_status": "error",
+                    }
+                ), 400
+
             logger.info(f"Getting service {identifier}")
             service = ServiceFactory.get_service(identifier)
             if not service:
                 logger.warning(f"No service registered for identifier: {identifier}")
-                return jsonify({
-                    "message": f"Service not found for identifier: {identifier}",
-                    "service_status": "error",
-                }), 404
+                return jsonify(
+                    {
+                        "message": f"Service not found for identifier: {identifier}",
+                        "service_status": "error",
+                    }
+                ), 404
 
-            logger.debug(f"Retrieved service {service.cfg.file_metadata.path} for {identifier}")
+            logger.debug(
+                f"Retrieved service {service.cfg.file_metadata.path} for {identifier}"
+            )
             try:
-
                 if service.should_ignore(path):
                     logger.info(f"Requested path '{path}' ignored for waking")
-                    return service.respond("Server offline - background sync ignored", "offline", self.direct_netloc, 503)
+                    return service.respond(
+                        "Server offline - background sync ignored",
+                        "offline",
+                        self.direct_netloc,
+                        503,
+                    )
 
                 if service.check_status():
                     if identifier.startswith(self.direct_netloc):
-                        return service.respond(f"Host {service.filename} online", "online", self.direct_netloc, 200)
-                    
+                        return service.respond(
+                            f"Host {service.filename} online",
+                            "online",
+                            self.direct_netloc,
+                            200,
+                        )
+
                     logger.info(f"Server online, redirecting to {service.cfg.APP_URL}")
                     return redirect(service.cfg.APP_URL)
 
                 service.wake(identifier, ip)
-                return service.respond("Waking up the server...", "offline", self.direct_netloc, 202)
+                return service.respond(
+                    "Waking up the server...", "offline", self.direct_netloc, 202
+                )
 
             except Exception as e:
                 logger.exception(f"Internal error: {e}")
-                return service.respond(f"Internal error: {str(e)}", "error", self.direct_netloc, 500)
-
-
+                return service.respond(
+                    f"Internal error: {e}", "error", self.direct_netloc, 500
+                )
 
     def __register_middleware(self, app: Flask):
 
@@ -289,11 +326,10 @@ class Api(BaseApplication):
             ServiceFactory.refresh()
 
             g.request_id = str(uuid.uuid4())[:6]
-            ip: str | None = request.headers.get('X-Forwarded-For', request.remote_addr)
-            hostname = urlparse(request.url).hostname or request.host.split(':')[0]
+            ip: str | None = request.headers.get("X-Forwarded-For", request.remote_addr)
+            hostname = urlparse(request.url).hostname or request.host.split(":")[0]
 
             logger.info(f"[+] ({hostname}) : {request.method} {url_path} from {ip}")
-
 
         @app.after_request
         def after_request(response):
@@ -310,20 +346,17 @@ class Api(BaseApplication):
                 logger.info(f"[-] Status: {response.status_code}")
             return response
 
-
-
     def load(self) -> Any:
         return self.app
 
-
-
     def load_config(self):
-        config = {key: value for key, value in self.options.items()
-                  if key in self.cfg.settings and value is not None}
+        config = {
+            key: value
+            for key, value in self.options.items()
+            if key in self.cfg.settings and value is not None
+        }
         for key, value in config.items():
             self.cfg.set(key.lower(), value)
-
-
 
     @staticmethod
     def __handle_exit(signum, frame):
