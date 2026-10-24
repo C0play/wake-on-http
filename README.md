@@ -4,13 +4,7 @@
 
 ## Demo
 
-<p align="center">
-  <video
-    src="https://github.com/user-attachments/assets/1da928fe-1cf4-4bd6-8cc3-0b37bda0b394"
-    controls
-    width="800">
-  </video>
-</p>
+[Watch the demo video](https://github.com/user-attachments/assets/1da928fe-1cf4-4bd6-8cc3-0b37bda0b394)
 
 ## Use Case
 
